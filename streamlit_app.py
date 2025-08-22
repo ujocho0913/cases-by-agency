@@ -49,10 +49,25 @@ with st.sidebar:
 
     # Filter by Month
     # st.write("Filter by Month")
+    months_dict = {
+        "-01": "Jan",
+        "-02": "Feb",
+        "-03": "Mar",
+        "-04": "Apr",
+        "-05": "May",
+        "-06": "Jun",
+        "-07": "Jul",
+        "-08": "Aug",
+        "-09": "Sep",
+        "-10": "Oct",
+        "-11": "Nov",
+        "-12": "Dec"
+    }
     selected_months = st.multiselect(
         "Select Month",
         options=all_months,
-        default=all_months
+        default=all_months,
+        format_func=lambda x: months_dict.get(x, x)
     )
     months_pattern = "|".join(map(re.escape, selected_months))
 
@@ -69,7 +84,19 @@ with st.sidebar:
         (long_df['ref_month_yr'].str.contains(years_pattern)) & 
         (long_df['ref_month_yr'].str.contains(months_pattern))
     ].copy()
+    
     location_df['ref_month_yr'] = pd.to_datetime(location_df['ref_month_yr']) # .dt.strftime("%Y-%m")
+    location_df = location_df.groupby(['JCPAO Location', 'ref_month_yr'])['Cases'].sum().reset_index()
+
+    pivot_df2 = (
+        location_df.groupby(['ref_month_yr', 'JCPAO Location'])['Cases']
+        .sum()
+        .unstack(fill_value=0)
+    ).reset_index()
+
+    location_df = pivot_df2.melt(id_vars='ref_month_yr', var_name='JCPAO Location', value_name='Cases')
+    location_df['ref_month_yr'] = pd.to_datetime(location_df['ref_month_yr']) # format='%b-%Y
+    location_df = location_df.sort_values('ref_month_yr')
 
     # Caption
     st.caption("Data as of Friday, August 22, 2025.")
@@ -96,11 +123,12 @@ with st.expander("Bar Chart - Received Criminal Cases by Police Agency"):
 
 with st.expander("Bar Chart - Received Criminal Cases by JCPAO Location"):
     # Build Altair grouped bar chart
-    chart = alt.Chart(filtered_df).mark_bar().encode(
+    chart = alt.Chart(location_df).mark_bar().encode(
         x=alt.X('ref_month_yr:T', title='Month-Year'), # sort="-y" 
         xOffset=alt.XOffset('JCPAO Location:N'),
         y=alt.Y('Cases:Q', title='Cases Received'),
         color='JCPAO Location:N',
+        # column='JCPAO Location:N',
         tooltip=['ref_month_yr', 'JCPAO Location', 'Cases']
     ).properties(
         title='📊 Monthly Cases Received by JCPAO Location (Downtown vs. East Jack)',
@@ -109,9 +137,13 @@ with st.expander("Bar Chart - Received Criminal Cases by JCPAO Location"):
     )
 
     st.altair_chart(chart, use_container_width=True)
+    # st.bar_chart(pivot_df2)
 
-with st.expander("Raw Data"):
+with st.expander("Raw Data - by Police Agency"):
     st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+
+with st.expander("Raw Data - by JCPAO Location"):
+    st.dataframe(pivot_df2, use_container_width=True, hide_index=True)
 
 with st.expander("About the app"):
     st.write(
