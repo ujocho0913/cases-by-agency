@@ -13,6 +13,9 @@ long_df = df.melt(id_vars='ref_month_yr',
                     var_name='Agency', 
                     value_name='Cases')
 
+# Add JCPAO Location
+long_df['JCPAO Location'] = ['Downtown' if agency in ['KCPD', 'Grandview PD'] else 'Eastern Jack' for agency in long_df['Agency']]
+
 # long_df['ref_month_yr'] = pd.to_datetime(long_df['ref_month_yr']) # .dt.strftime("%Y-%m")
 
 # --- st.sidebar ---
@@ -58,10 +61,15 @@ with st.sidebar:
         (long_df['Agency'].isin(selected_agencies)) &
         (long_df['ref_month_yr'].str.contains(years_pattern)) & 
         (long_df['ref_month_yr'].str.contains(months_pattern))
-    ]
-
+    ].copy()
     filtered_df['ref_month_yr'] = pd.to_datetime(filtered_df['ref_month_yr']) # .dt.strftime("%Y-%m")
 
+    # JCPAO Location DataFrame
+    location_df = long_df[
+        (long_df['ref_month_yr'].str.contains(years_pattern)) & 
+        (long_df['ref_month_yr'].str.contains(months_pattern))
+    ].copy()
+    location_df['ref_month_yr'] = pd.to_datetime(location_df['ref_month_yr']) # .dt.strftime("%Y-%m")
 
     # Caption
     st.caption("Data as of Friday, August 22, 2025.")
@@ -70,7 +78,7 @@ with st.sidebar:
 # with st.expander("Bar Chart"):
 #     st.bar_chart(data=filtered_df, x="ref_month_yr", y='Agency')
 
-with st.expander("Altair Bar Chart"):
+with st.expander("Bar Chart - Received Criminal Cases by Police Agency"):
     # Build Altair grouped bar chart
     chart = alt.Chart(filtered_df).mark_bar().encode(
         x=alt.X('ref_month_yr:T', title='Month-Year'), # sort="-y" 
@@ -80,6 +88,22 @@ with st.expander("Altair Bar Chart"):
         tooltip=['ref_month_yr', 'Agency', 'Cases']
     ).properties(
         title='📊 Monthly Cases Received by Agency',
+        width=700,
+        height=400
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+with st.expander("Bar Chart - Received Criminal Cases by JCPAO Location"):
+    # Build Altair grouped bar chart
+    chart = alt.Chart(filtered_df).mark_bar().encode(
+        x=alt.X('ref_month_yr:T', title='Month-Year'), # sort="-y" 
+        xOffset=alt.XOffset('JCPAO Location:N'),
+        y=alt.Y('Cases:Q', title='Cases Received'),
+        color='JCPAO Location:N',
+        tooltip=['ref_month_yr', 'JCPAO Location', 'Cases']
+    ).properties(
+        title='📊 Monthly Cases Received by JCPAO Location (Downtown vs. East Jack)',
         width=700,
         height=400
     )
